@@ -1,0 +1,37 @@
+def b_type(arr):
+    inst=arr[0]
+    rs1=arr[1]
+    rs2=arr[2]
+    imm=arr[3]
+    imm1=imm[0]+imm[2:7]
+    imm2=imm[8:11]+imm[1]
+    opcode="1100011"
+    output_str=""
+    if inst=="beq":
+        output_str=imm1+rs2+rs1+"000"+imm2+opcode
+        return output_str
+    elif inst=="bne":
+        output_str=imm1+rs2+rs1+"001"+imm2+opcode
+        return output_str
+    elif inst=="blt":
+        output_str=imm1+rs2+rs1+"100"+imm2+opcode
+        return output_str
+    elif inst=="bge":
+        output_str=imm1+rs2+rs1+"101"+imm2+opcode
+        return output_str
+    elif inst=="bltu":
+        output_str=imm1+rs2+rs1+"110"+imm2+opcode
+        return output_str
+    elif inst=="bgeu":
+        output_str=imm1+rs2+rs1+"111"+imm2+opcode
+        return output_str
+def j_type(arr):
+    inst=arr[0]
+    rd=arr[1]
+    imm=arr[2]
+    imm1=imm[0]+imm[10:19]+imm[9]+imm[1:8]
+    opcode="1101111"
+    outputstr=""
+    if inst=="jal":
+        outputstr=imm1+rd+opcode
+        return outputstr
