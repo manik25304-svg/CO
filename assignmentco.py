@@ -18,7 +18,7 @@ def rtype(x):
         arr.append("000")              
         arr.append("0110011")
     elif (x=="sub"):
-        arr.append("0000000")
+        arr.append("0100000")
         arr.append("000")              
         arr.append("0110011")
     elif (x=="sll"):
