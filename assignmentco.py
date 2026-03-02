@@ -1,30 +1,53 @@
 import re
+def rval(a):
+    rd=format(a,'05b')
+    return str(rd)
+
+def rtype(x):
+    arr=[]
+    if(x=="sltu"):
+        arr.append("0000000")
+        arr.append("011")              # type of arr-> func7 , func3 , opcode
+        arr.append("0110011")
+    elif (x=="xor"):
+        arr.append("0000000")
+        arr.append("100")              
+        arr.append("0110011")
+    elif (x=="add"):
+        arr.append("0000000")
+        arr.append("000")              
+        arr.append("0110011")
+    elif (x=="sub"):
+        arr.append("0000000")
+        arr.append("000")              
+        arr.append("0110011")
+    elif (x=="sll"):
+        arr.append("0000000")
+        arr.append("001")              
+        arr.append("0110011")
+    elif (x=="slt"):
+        arr.append("0000000")
+        arr.append("010")              
+        arr.append("0110011")
+    elif (x=="or"):
+        arr.append("0000000")
+        arr.append("110")              
+        arr.append("0110011")
+    elif (x=="srl"):
+        arr.append("0000000")
+        arr.append("101")              
+        arr.append("0110011")
+    elif (x=="and"):
+        arr.append("0000000")
+        arr.append("111")              
+        arr.append("0110011")
+    return arr
 def stype(x):
     arr=[]
     if (x=="sw"):           # type of arr-> func3 , opcode
         arr.append("010")              
         arr.append("0100011")
 
-def btype(x):
-    arr=[]
-    if (x=="beq"):           # type of arr-> func3 , opcode
-        arr.append("000")              
-        arr.append("1100011")
-    elif (x=="bne"):
-        arr.append("001")              
-        arr.append("1100011")
-    elif (x=="blt"):
-        arr.append("100")              
-        arr.append("1100011")
-    elif (x=="bge"):
-        arr.append("101")              
-        arr.append("1100011")
-    elif (x=="bltu"):
-        arr.append("110")              
-        arr.append("1100011")
-    elif (x=="bgeu"):
-        arr.append("111")              
-        arr.append("1100011")
 def utype(x):
     arr=[]
     if (x=="lui"):             
@@ -79,42 +102,52 @@ j=["jal"]
 
 if(ip[0] in r ):
     a=rtype(ip[0])
+    rs2=rval(reg[ip[3]])
+    rs1=rval(reg[ip[2]])
+    rd=rval(reg[ip[1]])
+    print(a[0]+rs2+rs1+a[1]+rd+a[2])
 elif(ip[0] in i):
-    rs1=ip[2]
-    rs1=format(reg[rs1],'05b')
-    rs1=str(rs1)
-    rd=ip[1]
-    rd=format(reg[rd],'05b')
-    rd=str(rd)
-    imm = int(ip[3])
-    imm = format(imm & 0xfff, '012b')
-    imm=str(imm)
+    
     if(ip[0]=="lw"):
         rs1=ip[3]
-        rs1=format(reg[rs1],'05b')
-        rs1=str(rs1)
+        rs1=rval(reg[rs1])
         rd=ip[1]
-        rd=format(reg[rd],'05b')
-        rd=str(rd)
+        rd=rval(reg[rd])
         imm = int(ip[2])
         imm = format(imm & 0xfff, '012b')
         imm=str(imm)
         opcode="0000011"
         func3="010"
         print(imm+rs1+func3+rd+opcode)
-        
-    elif(ip[0]=="addi"):
-        opcode="0010011"
-        func3="000"
-        print(imm+rs1+func3+rd+opcode)
-    elif(ip[0]=="sltiu"):
-        opcode="0010011"
-        func3="011"
-        print(imm+rs1+func3+rd+opcode)
-    elif(ip[0]=="jalr"):
-        opcode="1100111"
-        func3="000"
-        print(imm+rs1+func3+rd+opcode)
+    else:    
+        imm = int(ip[3])
+        imm = format(imm & 0xfff, '012b')
+        imm=str(imm)
+        rs1=rval(reg[ip[2]])
+        rd=rval(reg[ip[1]])
+        if(ip[0]=="addi"):
+            opcode="0010011"
+            func3="000"
+            print(imm+rs1+func3+rd+opcode)
+        elif(ip[0]=="sltiu"):
+            opcode="0010011"
+            func3="011"
+            print(imm+rs1+func3+rd+opcode)
+        elif(ip[0]=="jalr"):
+            opcode="1100111"
+            func3="000"
+            print(imm+rs1+func3+rd+opcode)
+elif(ip[0] in s):
+    if(ip[0]=="sw"):
+        imm=int(ip[2])
+        imm = format(imm & 0xfff, '012b')
+        imm=str(imm)
+        rs2=rval(reg[ip[1]])
+        rs1=rval(reg[ip[3]])
+        func3="010"
+        opcode="0100011"
+        print(imm[0:7]+rs2+rs1+func3+imm[7:12]+opcode)
+
 
 
         
