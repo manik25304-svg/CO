@@ -5,33 +5,14 @@ def stype(x):
         arr.append("010")              
         arr.append("0100011")
 
-def btype(x):
-    arr=[]
-    if (x=="beq"):           # type of arr-> func3 , opcode
-        arr.append("000")              
-        arr.append("1100011")
-    elif (x=="bne"):
-        arr.append("001")              
-        arr.append("1100011")
-    elif (x=="blt"):
-        arr.append("100")              
-        arr.append("1100011")
-    elif (x=="bge"):
-        arr.append("101")              
-        arr.append("1100011")
-    elif (x=="bltu"):
-        arr.append("110")              
-        arr.append("1100011")
-    elif (x=="bgeu"):
-        arr.append("111")              
-        arr.append("1100011")
+
 def utype(x):
     arr=[]
     if (x=="lui"):             
         arr.append("0110111")
     elif (x=="auipc"):             
         arr.append("0010111")
-"""def b_type(arr):
+def b_type(arr):
     inst=arr[0]
     rs1=arr[1]
     rs2=arr[2]
@@ -57,7 +38,7 @@ def utype(x):
         return output_str
     elif inst=="bgeu":
         output_str=imm1+rs2+rs1+"111"+imm2+opcode
-        return output_str"""
+        return output_str
 def j_type(arr):
     inst=arr[0]
     rd=arr[1]
@@ -158,43 +139,7 @@ elif(ip[0] in i):
 
 
 
-def b_type(arr):
-    inst=arr[0]
-    rs1=arr[1]
-    rs2=arr[2]
-    imm=arr[3]
-    imm1=imm[0]+imm[2:7]
-    imm2=imm[8:11]+imm[1]
-    opcode="1100011"
-    output_str=""
-    if inst=="beq":
-        output_str=imm1+rs2+rs1+"000"+imm2+opcode
-        return output_str
-    elif inst=="bne":
-        output_str=imm1+rs2+rs1+"001"+imm2+opcode
-        return output_str
-    elif inst=="blt":
-        output_str=imm1+rs2+rs1+"100"+imm2+opcode
-        return output_str
-    elif inst=="bge":
-        output_str=imm1+rs2+rs1+"101"+imm2+opcode
-        return output_str
-    elif inst=="bltu":
-        output_str=imm1+rs2+rs1+"110"+imm2+opcode
-        return output_str
-    elif inst=="bgeu":
-        output_str=imm1+rs2+rs1+"111"+imm2+opcode
-        return output_str
-def j_type(arr):
-    inst=arr[0]
-    rd=arr[1]
-    imm=arr[2]
-    imm1=imm[0]+imm[10:19]+imm[9]+imm[1:8]
-    opcode="1101111"
-    outputstr=""
-    if inst=="jal":
-        outputstr=imm1+rd+opcode
-        return outputstr
 
     
+
     
