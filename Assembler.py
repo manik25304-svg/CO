@@ -2,11 +2,11 @@ import re
 import sys
 
 if len(sys.argv)<3:
-    print("Not of expectted type")
+    print("Not of expectted type")              # if the number of argument is less than 3 print error and exit
     sys.exit(1)
 
-inset=sys.argv[1]
-outset=sys.argv[2]
+inset=sys.argv[1]                       # input file->argv[1
+outset=sys.argv[2]                      # output file->argv[2]
 #can i define a funtion such taht it will give me a method to read lines one by on
 def j_jumper(pc,label,labelname):
     a=label[labelname]
@@ -20,7 +20,7 @@ def utype(x):
         arr.append("0010111")
     return arr
 def rval(a):
-    rd=format(a,'05b')
+    rd=format(a,'05b')                  # convert the integer resistor value to 5 bit biinary
     return str(rd)
 def btype(x):
     arr=[]
@@ -120,7 +120,7 @@ reg= {
 }
 r=["add","sub","sll","slt","sltu","xor","and","or","srl"]
 ity=["lw","addi","sltiu","jalr"]
-s=["sw"]
+s=["sw"]                                                # defined which keyword in which instruction
 b=["beq","bne","blt","bge","bltu","bgeu"]
 u=["lui","auipc"]
 jtyp=["jal"]
@@ -132,10 +132,11 @@ try:
         pc_place= 0x1000
         label={}
         address_inst={}
-        #Now a block will be defined to do a framework regarding each value in it
         for i in instructions:
             inst=re.split(r'[,()\s]+',i)
             inst = [x for x in inst if x]
+            if not inst:
+                continue
             #here the value of pc place will be up for variation based on the number of codelines that will occur in this
             address_inst[hex(pc_place)]=inst
             pc_place+=4
@@ -216,7 +217,7 @@ try:
                 rs2=rval(reg[inst2[pos+2]])
                 imm=inst2[pos+3]
                 pc=int(x,16)
-                if imm.isdigit():
+                if imm.lstrip('-').isdigit():
                     imm=int(imm)
                 else:
                     imm=label[imm+":"]-pc
@@ -228,7 +229,7 @@ try:
                     rd=rval(reg[inst2[pos+1]])
                     imm = inst2[pos+2]
                     pc = int(x, 16)
-                    if imm.isdigit():
+                    if imm.lstrip('-').isdigit():
                         imm=int(imm)
                     else:
                         imm = label[imm+":"] - pc
