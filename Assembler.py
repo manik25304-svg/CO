@@ -1,13 +1,12 @@
 import re
 import sys
-
 if len(sys.argv)<3:
-    print("Not of expectted type")              # if the number of argument is less than 3 print error and exit
+    print("Not of expected type")              # if the number of argument is less than 3 print error and exit
     sys.exit(1)
 
 inset=sys.argv[1]                       # input file->argv[1
-outset=sys.argv[2]                      # output file->argv[2]
-#can i define a funtion such taht it will give me a method to read lines one by on
+outset=sys.argv[2]  
+
 def j_jumper(pc,label,labelname):
     a=label[labelname]
     pc=a
@@ -20,7 +19,7 @@ def utype(x):
         arr.append("0010111")
     return arr
 def rval(a):
-    rd=format(a,'05b')                  # convert the integer resistor value to 5 bit biinary
+    rd=format(a,'05b')
     return str(rd)
 def btype(x):
     arr=[]
@@ -82,7 +81,8 @@ def rtype(x):
         arr.append("111")              
         arr.append("0110011")
     return arr
-    
+
+#def itype(x):
 
 reg= {
     "x0":0, "zero":0,
@@ -120,10 +120,17 @@ reg= {
 }
 r=["add","sub","sll","slt","sltu","xor","and","or","srl"]
 ity=["lw","addi","sltiu","jalr"]
-s=["sw"]                                                # defined which keyword in which instruction
+s=["sw"]
 b=["beq","bne","blt","bge","bltu","bgeu"]
 u=["lui","auipc"]
 jtyp=["jal"]
+def regchecker(rs,reg):
+    if rs in reg:
+        return(1)
+    else:
+        return(0)
+
+
 
 
 try:
@@ -132,6 +139,7 @@ try:
         pc_place= 0x1000
         label={}
         address_inst={}
+        #Now a block will be defined to do a framework regarding each value in it
         for i in instructions:
             inst=re.split(r'[,()\s]+',i)
             inst = [x for x in inst if x]
@@ -148,7 +156,6 @@ try:
                 label[inst2[0]]=pc_place
             pc_place+=4
         wset=[]
-
         for x in address_inst:
             
             inst2=address_inst[x]
@@ -157,103 +164,135 @@ try:
                 pos=1
             line=None
             if(inst2[pos] in r):
-                a=rtype(inst2[pos])
-                rs2=rval(reg[inst2[pos+3]])
-                rs1=rval(reg[inst2[pos+2]])
-                rd=rval(reg[inst2[pos+1]])
-                line=(a[0]+rs2+rs1+a[1]+rd+a[2])
-            elif(inst2[pos] in ity):
-    
-                if(inst2[pos]=="lw"):
-                    rs1=inst2[pos+3]
-                    rs1=rval(reg[rs1])
-                    rd=inst2[pos+1]
-                    rd=rval(reg[rd])
-                    imm = int(inst2[pos+2])
-                    imm = format(imm & 0xfff, '012b')
-                    imm=str(imm)
-                    opcode="0000011"
-                    func3="010"
-                    line=(imm+rs1+func3+rd+opcode)
-                elif(inst2[pos]=="addi" or inst2[pos]=="sltiu" or inst2[pos]=="jalr"):    
-                    imm = int(inst2[pos+3])
-                    imm = format(imm & 0xfff, '012b')
-                    imm=str(imm)
-                    rs1=rval(reg[inst2[pos+2]])
-                    rd=rval(reg[inst2[pos+1]])
-                    if(inst2[pos]=="addi"):
-                        opcode="0010011"
-                        func3="000"
-                        line=(imm+rs1+func3+rd+opcode)
-                    elif(inst2[pos]=="sltiu"):
-                        opcode="0010011"
-                        func3="011"
-                        line=(imm+rs1+func3+rd+opcode)
-                    elif(inst2[pos]=="jalr"):
-                        opcode="1100111"
-                        func3="000"
-                        line=(imm+rs1+func3+rd+opcode)
-            elif(inst2[pos+0] in s):
-                if(inst2[pos+0]=="sw"):
-                    imm=int(inst2[pos+2])
-                    imm = format(imm & 0xfff, '012b')
-                    imm=str(imm)
-                    rs2=rval(reg[inst2[pos+1]])
-                    rs1=rval(reg[inst2[pos+3]])
-                    func3="010"
-                    opcode="0100011"
-                    line=(imm[0:7]+rs2+rs1+func3+imm[7:12]+opcode)
-            elif(inst2[pos+0] in u):
-                a=utype(inst2[pos+0])
-                rd=rval(reg[inst2[pos+1]])
-                imm=int(inst2[pos+2])
-                imm=imm//4096
-                imm = format(imm & 0xfffff , '020b')
-                imm=str(imm)
-                line=(imm+rd+a[0])
-            elif(inst2[pos] in b):
-                a=btype(inst2[pos])
-                rs1=rval(reg[inst2[pos+1]])
-                rs2=rval(reg[inst2[pos+2]])
-                imm=inst2[pos+3]
-                pc=int(x,16)
-                if imm.lstrip('-').isdigit():
-                    imm=int(imm)
-                else:
-                    imm=label[imm+":"]-pc
-                imm = format(imm & 0x1fff , '013b')
-                line=(imm[0]+imm[2:8]+rs2+rs1+a[0]+imm[8:12]+imm[1]+a[1])
-            elif(inst2[pos] in jtyp):
-                if inst2[pos] == "jal":
-                    opcode="1101111"
-                    rd=rval(reg[inst2[pos+1]])
-                    imm = inst2[pos+2]
-                    pc = int(x, 16)
-                    if imm.lstrip('-').isdigit():
-                        imm=int(imm)
+                if len(inst2[pos:])==4:
+                    if regchecker(inst2[pos+3],reg)==0 or regchecker(inst2[pos+2],reg)==0 or regchecker(inst2[pos+1],reg)==0:
+                        line=("Invalid Register name")
                     else:
-                        imm = label[imm+":"] - pc
-                    imm = format(imm & 0x1fffff, '021b')
+                        a=rtype(inst2[pos])
+                        rs2=rval(reg[inst2[pos+3]])
+                        rs1=rval(reg[inst2[pos+2]])
+                        rd=rval(reg[inst2[pos+1]])
+                        line=(a[0]+rs2+rs1+a[1]+rd+a[2])
+                else:
+                    line=("Invalid number of Arguments in the instruction")
+            elif(inst2[pos] in ity):
+                if len(inst2[pos:])==4:
+                    if(inst2[pos]=="lw"):
+                        rs1=inst2[pos+3]
+                        rd=inst2[pos+1]
+                        if regchecker(rd,reg)==0 or regchecker(rs1,reg)==0:
+                            line=("Invalid Register name")
+                        else:
+                            rs1=rval(reg[rs1])
+                            rd=rval(reg[rd])
 
-                    line=(imm[0]+imm[10:20]+imm[9]+imm[1:9]+rd+opcode)
+                            imm = int(inst2[pos+2])
+                            imm = format(imm & 0xfff, '012b')
+                            imm=str(imm)
+                            opcode="0000011"
+                            func3="010"
+                            line=(imm+rs1+func3+rd+opcode)
+                    elif(inst2[pos]=="addi" or inst2[pos]=="sltiu" or inst2[pos]=="jalr"):
+                        if regchecker(inst2[pos+2],reg)==0 or regchecker(inst2[pos+1],reg)==0:
+                            line=("Invalid Register name")
+                        else:    
+                            imm = int(inst2[pos+3])
+                            imm = format(imm & 0xfff, '012b')
+                            imm=str(imm)
+                            rs1=rval(reg[inst2[pos+2]])
+                            rd=rval(reg[inst2[pos+1]])
+                            if(inst2[pos]=="addi"):
+                                opcode="0010011"
+                                func3="000"
+                                line=(imm+rs1+func3+rd+opcode)
+                            elif(inst2[pos]=="sltiu"):
+                                opcode="0010011"
+                                func3="011"
+                                line=(imm+rs1+func3+rd+opcode)
+                            elif(inst2[pos]=="jalr"):
+                                opcode="1100111"
+                                func3="000"
+                                line=(imm+rs1+func3+rd+opcode)
+                else:
+                    line=("Invalid number of Arguments in the instruction")
+            elif(inst2[pos+0] in s):
+                if len(inst2[pos:])==4:
+                    if(inst2[pos+0]=="sw"):
+                        if regchecker(inst2[pos+1],reg)==0 or regchecker(inst2[pos+3],reg)==0:
+                            line=("Invalid Register Name")
+                        else:
+                            imm=int(inst2[pos+2])
+                            imm = format(imm & 0xfff, '012b')
+                            imm=str(imm)
+                            rs2=rval(reg[inst2[pos+1]])
+                            rs1=rval(reg[inst2[pos+3]])
+                            func3="010"
+                            opcode="0100011"
+                            line=(imm[0:7]+rs2+rs1+func3+imm[7:12]+opcode)
+                        
+                else:
+                    line=("Invalid number of arguments in the instruction,")
+            elif(inst2[pos+0] in u):
+                if len(inst2[pos:])==3:
+                    if regchecker(inst2[pos+1],reg)==0:
+                        line=("Invalid Register name")
+                    else:
+                        a=utype(inst2[pos+0])
+                        rd=rval(reg[inst2[pos+1]])
+                        imm=int(inst2[pos+2])
+                        imm=imm//4096
+                        imm = format(imm & 0xfffff , '020b')
+                        imm=str(imm)
+                        line=(imm+rd+a[0])
+                else:
+                    line=("Invalid number of arguments in the instruction")
+            elif(inst2[pos] in b):
+                if len(inst2[pos:])==4:
+                    if regchecker(inst2[pos+1],reg)==0 or regchecker(inst2[pos+2],reg)==0:
+                        line=("Invalid Register name")
+                    else:
+                        a=btype(inst2[pos])
+                        rs1=rval(reg[inst2[pos+1]])
+                        rs2=rval(reg[inst2[pos+2]])
+                        imm=inst2[pos+3]
+                        pc=int(x,16)
+                        if imm.lstrip('-').isdigit():
+                            imm=int(imm)
+                        else:
+                            imm=label[imm+":"]-pc
+                        imm = format(imm & 0x1fff , '013b')
+                        line=(imm[0]+imm[2:8]+rs2+rs1+a[0]+imm[8:12]+imm[1]+a[1])
+                else:
+                    line=("Invalid number of arguments in the instuction")
+            elif(inst2[pos] in jtyp):
+                if len(inst2[pos:])==3:
+                    if inst2[pos] == "jal":
+                        if regchecker(inst2[pos+1],reg)==0:
+                            line=("Invalid Register name")
+                        else:
+                            opcode="1101111"
+                            rd=rval(reg[inst2[pos+1]])
+                            imm = inst2[pos+2]
+                            pc = int(x, 16)
+                            if imm.lstrip('-').isdigit():
+                                imm=int(imm)
+                            else:
+                                imm = label[imm+":"] - pc
+                            imm = format(imm & 0x1fffff, '021b')
+
+                            line=(imm[0]+imm[10:20]+imm[9]+imm[1:9]+rd+opcode)
+                else:
+                    line=("Invalid number of arguments in the instruction")
+            
             else:
                 print ("command not found")
                 sys.exit(1)
-            
-
-
-
             if(line!=None): wset.append(line)
 
         with open(sys.argv[2], 'w') as f:
             for line in wset:
                f.write(line + "\n")
             
-
-
-
-        
-
 except FileNotFoundError:
     print(f"Error: The file '{inset}' was not found.")
     sys.exit(1)
