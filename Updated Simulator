@@ -1,0 +1,349 @@
+import re
+import sys
+
+dc=0                  # ongoing pc value
+l=[]                  # registers
+for x in range(32): l.append(0)
+l[2]=380            #Stack pointer initialized
+
+def findtype(k):
+    opcode=k[25:32]
+    funct3=k[17:20]
+    funct7=k[0:7]
+
+    rd=int(k[20:25], 2)
+    rs1=int(k[12:17], 2)
+    rs2=int(k[7:12],  2)
+
+    if opcode=='0110011':
+        if funct7=='0000000' and funct3=='000': return ('add',rd,rs1,rs2)
+        elif funct7=='0100000' and funct3=='000': return ('sub',rd,rs1,rs2)
+        elif funct7=='0000000' and funct3=='001': return ('sll',rd,rs1,rs2)
+        elif funct7=='0000000' and funct3=='010': return ('slt',rd,rs1,rs2)
+        elif funct7=='0000000' and funct3=='011': return ('sltu',rd,rs1,rs2)
+        elif funct7=='0000000' and funct3=='100': return ('xor',rd,rs1,rs2)
+        elif funct7=='0000000' and funct3=='101': return ('srl',rd,rs1,rs2)
+        elif funct7=='0000000' and funct3=='110': return ('or',rd,rs1,rs2)
+        elif funct7=='0000000' and funct3=='111': return ('and',rd,rs1,rs2)
+
+    elif opcode=='1100011':
+        imm = int(k[0] + k[24] + k[1:7] + k[20:24], 2)
+        if k[0]=="1": imm -= (1 << 12)
+        imm *= 2                # lsb to be 0
+
+        if   funct3=='000': return ('beq',rs1,rs2,imm)
+        elif funct3=='001': return ('bne',rs1,rs2,imm)
+        elif funct3=='100': return ('blt',rs1,rs2,imm)
+        elif funct3=='101': return ('bge',rs1,rs2,imm)
+        elif funct3=='110': return ('bltu',rs1,rs2,imm)
+        elif funct3=='111': return ('bgeu',rs1,rs2,imm)
+
+    elif opcode=='0010011':
+        imm=int(k[:12], 2)
+        if k[0] == '1': imm -= (1 << 12) #Negative sign implementaion
+        if funct3=='000': return ('addi',rd,rs1,imm)
+        elif funct3=='011': return ('sltiu',rd,rs1,imm)
+
+    elif opcode=="0000011":
+        imm=int(k[:12], 2)
+        if k[0] == '1': imm -= (1 << 12)
+        return ("lw", rd, imm, rs1)
+
+    elif opcode == "1100111":
+
+        imm = int(k[:12], 2)
+        if k[0] == '1': imm -= (1 << 12)
+        return ("jalr", rd, rs1, imm)
+
+    elif opcode == "0100011":
+        imm = int(k[:7] + k[20:25], 2)
+        if k[0] == '1': imm -= (1 << 12)
+        return ('sw', rs2, rs1, imm)
+
+    elif opcode == "0110111":
+        imm = int(k[:20], 2)
+        imm = imm * 4096
+        return ("lui", rd, imm)
+
+    elif opcode == "0010111":
+        imm = int(k[:20], 2)
+        imm = imm * 4096
+        return ("auipc", rd, imm)
+
+    elif opcode == "1101111":
+        imm = int(k[0] + k[12:20] + k[11] + k[1:11], 2)
+        if k[0] == '1': imm -= (1 << 20)
+        imm *= 2 
+        return ('jal', rd, imm)
+    return None
+
+
+halt = "00000000000000000000000001100011"
+
+if len(sys.argv) < 3:
+    print("Not of expected type")
+    sys.exit(1)
+
+inset  = sys.argv[1]
+outset = sys.argv[2]
+
+try:
+    with open(inset, 'r') as f:
+        lines = [p.strip() for p in f.readlines()]#Error 1:What if the instruction given is not of 32 bits
+        inst=[]
+        for i in range(len(lines)):
+            line=lines[i]
+            if len(line)==32:
+                    for c in line:
+                        if c not in'01':
+                            print(f"Invalid non-binary character on line {i+1}")#Error2:Invalid Binary Instruction
+                            sys.exit(1)
+                    inst.append(line)
+            else:
+                print(f"Invalid instruction on line {i+1}")
+                sys.exit(1)
+except FileNotFoundError:
+    print("Cannot find input file")
+    sys.exit(1)#Error3:Filenot Found
+
+def checkjump(a,dc,dict1):#Error 4: Jumping problem on jump and branch type instructions
+    if a%4!=0:
+        print(f"Misaligned jump on line {dc//4+1}")
+        sys.exit(1)
+    if a not in dict1:
+        print(f"Out of bounds jump on line {dc//4+1}")
+        sys.exit(1)
+
+
+pc = 0
+dict1 = {}
+for x in range(len(inst)):
+    dict1[pc] = inst[x]#pc counter will be running that particular function that is present in the code
+    pc += 4
+
+dc = 0
+
+memory = {} 
+
+
+with open(outset, 'w') as f:
+    while dc in dict1:
+       
+        ins = dict1[dc]
+
+        t = findtype(ins)
+        #Error 5:Unknown instruction is coming out
+        if t is None:
+            print(f"Unknown instruction at PC:{dc}")
+            sys.exit(0)
+
+        if t[0] == "add":
+            rd = t[1]
+            rs1 = t[2] 
+            rs2 = t[3]
+            if rd != 0: l[rd] = (l[rs1] + l[rs2]) & 0xFFFFFFFF
+            dc += 4
+
+        elif t[0] == "sub":
+            rd = t[1]
+            rs1 = t[2]
+            rs2 = t[3]
+            if rd != 0: l[rd] = (l[rs1] - l[rs2]) & 0xFFFFFFFF
+            dc += 4
+
+        elif t[0] == "sll":
+            rd = t[1]
+            rs1 = t[2]
+            rs2 = t[3]
+            if rd != 0: l[rd] = (l[rs1] << (l[rs2] & 0b11111)) & 0xFFFFFFFF
+            dc += 4
+
+        elif t[0] == "slt":
+            rd = t[1]
+            rs1 = t[2]
+            rs2 = t[3]
+            val1 = l[rs1] if l[rs1] < 0x80000000 else l[rs1] - 0x100000000
+            val2 = l[rs2] if l[rs2] < 0x80000000 else l[rs2] - 0x100000000
+            if rd != 0: l[rd] = 1 if val1 < val2 else 0
+            dc += 4
+
+        elif t[0] == "xor":
+            rd = t[1]
+            rs1 = t[2]
+            rs2 = t[3]
+            if rd != 0: l[rd] = (l[rs1] ^ l[rs2]) & 0xFFFFFFFF
+            dc += 4
+
+        elif t[0] == "sltu":
+            rd = t[1]
+            rs1 = t[2]
+            rs2 = t[3]
+            if rd != 0: l[rd] = 1 if (l[rs1] & 0xFFFFFFFF) < (l[rs2] & 0xFFFFFFFF) else 0
+            dc += 4
+
+        elif t[0] == "or":
+            rd = t[1]
+            rs1 = t[2]
+            rs2 = t[3]
+            if rd != 0: l[rd] = (l[rs1] | l[rs2]) & 0xFFFFFFFF
+            dc += 4
+
+        elif t[0] == "and":
+            rd = t[1]
+            rs1 = t[2]
+            rs2 = t[3]
+            if rd != 0: l[rd] = (l[rs1] & l[rs2]) & 0xFFFFFFFF
+            dc += 4
+
+        elif t[0] == "srl":
+            rd = t[1]
+            rs1 = t[2]
+            rs2 = t[3]
+            if rd != 0: l[rd] = (l[rs1] & 0xFFFFFFFF) >> (l[rs2] & 0b11111)
+            dc += 4
+
+        elif t[0] == "lw":
+            rd = t[1]
+            imm = t[2]
+            rs1 = t[3]
+            if rd != 0: l[rd] = memory.get(l[rs1] + imm, 0)
+            dc += 4
+
+        elif t[0] == "addi":
+            rd = t[1]
+            rs1 = t[2]
+            imm = t[3]
+            if rd != 0: l[rd] = (l[rs1] + imm) & 0xFFFFFFFF
+            dc += 4
+
+        elif t[0] == "sltiu":
+            rd = t[1]
+            rs1 = t[2]
+            imm = t[3]
+            if rd != 0: l[rd] = 1 if (l[rs1] & 0xFFFFFFFF) < (imm & 0xFFFFFFFF) else 0
+            dc += 4
+
+        elif t[0] == "jalr":
+            rd = t[1]
+            rs = t[2]
+            imm = t[3]
+            next_pc = ((l[rs] + imm) & ~1) & 0xFFFFFFFF
+            checkjump(next_pc,dc,dict1)#Checks the jumping function
+            if rd != 0: l[rd] = dc + 4
+            dc = next_pc
+
+        elif t[0] == "sw":
+            rs2 = t[1]
+            rs1 = t[2]
+            imm = t[3]
+            memory[l[rs1] + imm] = l[rs2] & 0xFFFFFFFF
+            dc += 4
+
+        elif t[0] == "beq":
+            rs1 = t[1]
+            rs2 = t[2]
+            imm = t[3]
+            if l[rs1]==l[rs2]:
+                a=dc+imm
+                checkjump(a,dc,dict1)
+                dc = (dc + imm) 
+            else:
+                dc=dc+4 
+
+        elif t[0] == "bne":
+            rs1 = t[1]
+            rs2 = t[2]
+            imm = t[3]
+            if l[rs1]!=l[rs2]:
+                a=dc+imm
+                checkjump(a,dc,dict1)
+                dc = (dc + imm) 
+            else:
+                dc=dc+4 
+
+
+        elif t[0] == "bge":
+            rs1 = t[1]
+            rs2 = t[2]
+            imm = t[3]
+            val1 = l[rs1] if l[rs1]< 0x80000000 else l[rs1] - 0x100000000
+            val2 = l[rs2] if l[rs2]< 0x80000000 else l[rs2] - 0x100000000
+            if val1>=val2:
+                a=dc+imm
+                checkjump(a,dc,dict1)
+                dc = (dc + imm)
+            else:
+                dc=dc+4               
+            
+
+        elif t[0] == "bgeu":
+            rs1=t[1]
+            rs2=t[2]
+            imm=t[3]
+            if (l[rs1] & 0xFFFFFFFF) >= (l[rs2] & 0xFFFFFFFF):
+                a=dc+imm
+                checkjump(a,dc,dict1)
+                dc = (dc + imm)                
+            else:
+                dc=dc + 4
+
+        elif t[0] == "blt":
+            rs1=t[1]
+            rs2=t[2]
+            imm=t[3]
+            val1 = l[rs1] if l[rs1]< 0x80000000 else l[rs1] - 0x100000000
+            val2 = l[rs2] if l[rs2]< 0x80000000 else l[rs2] - 0x100000000
+            if val1<val2:
+                a=dc+imm
+                checkjump(a,dc,dict1)
+                dc = (dc + imm)
+            else:
+                dc=dc+4
+
+
+        elif t[0] == "bltu":
+            rs1=t[1]
+            rs2=t[2]
+            imm=t[3]
+            if (l[rs1] & 0xFFFFFFFF) < (l[rs2] & 0xFFFFFFFF):
+                a=dc+imm
+                checkjump(a,dc,dict1)
+                dc = (dc + imm)
+            else :
+                dc=dc + 4
+
+        elif t[0] == "lui":
+            rd=t[1]
+            imm=t[2]
+            if rd != 0: l[rd] = imm & 0xFFFFFFFF
+            dc += 4
+
+        elif t[0] == "auipc":
+            rd=t[1]
+            imm=t[2]
+            if rd != 0: l[rd] = (dc + imm) & 0xFFFFFFFF
+            dc += 4
+
+        elif t[0] == "jal":
+            rd=t[1]
+            imm=t[2]
+            if rd != 0: l[rd] = dc + 4
+            a=dc+imm
+            checkjump(a,dc,dict1)
+            dc=dc+imm
+
+
+        z = "0b"+format(dc,'032b')
+        f.write(z + " ")
+        for h in range(32):
+            z = "0b" + format(l[h] & 0xFFFFFFFF, '032b')
+            f.write(z + " ")
+        f.write("\n")
+
+        if ins == halt:
+            break
+
+    for md in range(0x00010000, 0x00010080, 4):
+        f.write(("0x{:08X}:0b{}\n").format(md, format(memory.get(md, 0), '032b')))
+
+sys.exit(0)
