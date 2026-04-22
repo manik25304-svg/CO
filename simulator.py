@@ -4,9 +4,9 @@ import sys
 dc=0                  # ongoing pc value
 l=[]                  # registers
 for x in range(32): l.append(0)
-l[2]=380            
+l[2]=380            #stack resistor given 
 
-def findtype(k):
+def findtype(k):                # find and return instruction in understandable form 
     opcode=k[25:32]
     funct3=k[17:20]
     funct7=k[0:7]
@@ -75,6 +75,7 @@ def findtype(k):
         if k[0] == '1': imm -= (1 << 20)
         imm *= 2 
         return ('jal', rd, imm)
+    return None
 
 
 halt = "00000000000000000000000001100011"
@@ -86,24 +87,55 @@ if len(sys.argv) < 3:
 inset  = sys.argv[1]
 outset = sys.argv[2]
 
-with open(inset, 'r') as f:
-    inst = [p.strip() for p in f.readlines()]
+try:
+    with open(inset, 'r') as f:
+        lines = [p.strip() for p in f.readlines()]
+        inst=[]
+        for i in range(len(lines)):
+            line=lines[i]
+            if len(line)==32:               # check if instruction is 32v bit
+                    for c in line:
+                        if c not in'01':        #check if the instruction contain any character rathe than binary
+                            print(f"Invalid non-binary character on line {i+1}")
+                            sys.exit(1)
+                    inst.append(line)
+            else:
+                print(f"Invalid instruction on line {i+1}")
+                sys.exit(1)
+except FileNotFoundError:
+    print("Cannot find input file")
+    sys.exit(1)#Error3:Filenot Found
+
+def checkjump(a,dc,dict1):  #check if jumping line pc value exist
+    if a%4!=0:
+        print(f"Misaligned jump on line {dc//4+1}")
+        sys.exit(1)
+    if a not in dict1:
+        print(f"Out of bounds jump on line {dc//4+1}")
+        sys.exit(1)
+
 
 pc = 0
 dict1 = {}
 for x in range(len(inst)):
-    dict1[pc] = inst[x]
+    dict1[pc] = inst[x]#pc counter will be running that particular function that is present in the code
     pc += 4
 
 dc = 0
-memory = {}
+
+memory = {} 
+
 
 with open(outset, 'w') as f:
-    while dc in dict1:
+    while dc in dict1.keys():
        
         ins = dict1[dc]
 
         t = findtype(ins)
+        
+        if t is None:       # if instruction does not exist in the version of simulater we made
+            print(f"Unknown instruction at PC:{dc}")
+            sys.exit(0)
 
         if t[0] == "add":
             rd = t[1]
@@ -116,7 +148,7 @@ with open(outset, 'w') as f:
             rd = t[1]
             rs1 = t[2]
             rs2 = t[3]
-            if rd != 0: l[rd] = (l[rs1] - l[rs2])
+            if rd != 0: l[rd] = (l[rs1] - l[rs2]) & 0xFFFFFFFF
             dc += 4
 
         elif t[0] == "sll":
@@ -174,6 +206,10 @@ with open(outset, 'w') as f:
             rd = t[1]
             imm = t[2]
             rs1 = t[3]
+            addre=l[rs1]+imm
+            if(addre%4!=0):             
+                print("Memory Error")
+                sys.exit()                      # done in lw sw so if memmory %4!=0 error
             if rd != 0: l[rd] = memory.get(l[rs1] + imm, 0)
             dc += 4
 
@@ -196,6 +232,7 @@ with open(outset, 'w') as f:
             rs = t[2]
             imm = t[3]
             next_pc = ((l[rs] + imm) & ~1) & 0xFFFFFFFF
+            checkjump(next_pc,dc,dict1)#Checks the jumping function
             if rd != 0: l[rd] = dc + 4
             dc = next_pc
 
@@ -203,48 +240,86 @@ with open(outset, 'w') as f:
             rs2 = t[1]
             rs1 = t[2]
             imm = t[3]
-            memory[l[rs1] + imm] = l[rs2] & 0xFFFFFFFF
+            addre=l[rs1] + imm
+            if(addre%4!=0):
+                print("Memory error")
+                sys.exit()
+            
+            memory[addre] = l[rs2] & 0xFFFFFFFF
             dc += 4
 
         elif t[0] == "beq":
             rs1 = t[1]
             rs2 = t[2]
             imm = t[3]
-            dc = (dc + imm) if l[rs1] == l[rs2] else dc + 4
+            if l[rs1]==l[rs2]:
+                a=dc+imm
+                checkjump(a,dc,dict1)
+                dc = (dc + imm) 
+            else:
+                dc=dc+4 
 
         elif t[0] == "bne":
             rs1 = t[1]
             rs2 = t[2]
             imm = t[3]
-            dc = (dc + imm) if l[rs1] != l[rs2] else dc + 4
+            if l[rs1]!=l[rs2]:
+                a=dc+imm
+                checkjump(a,dc,dict1)
+                dc = (dc + imm) 
+            else:
+                dc=dc+4 
+
 
         elif t[0] == "bge":
             rs1 = t[1]
             rs2 = t[2]
             imm = t[3]
-            val1 = l[rs1] & 0xFFFFFFFF
-            val2 = l[rs2] & 0xFFFFFFFF
-            dc = (dc + imm) if val1 >= val2 else dc + 4
+            val1 = l[rs1] if l[rs1]< 0x80000000 else l[rs1] - 0x100000000
+            val2 = l[rs2] if l[rs2]< 0x80000000 else l[rs2] - 0x100000000
+            if val1>=val2:
+                a=dc+imm
+                checkjump(a,dc,dict1)
+                dc = (dc + imm)
+            else:
+                dc=dc+4               
+            
 
         elif t[0] == "bgeu":
             rs1=t[1]
             rs2=t[2]
             imm=t[3]
-            dc = (dc + imm) if (l[rs1] & 0xFFFFFFFF) >= (l[rs2] & 0xFFFFFFFF) else dc + 4
+            if (l[rs1] & 0xFFFFFFFF) >= (l[rs2] & 0xFFFFFFFF):
+                a=dc+imm
+                checkjump(a,dc,dict1)
+                dc = (dc + imm)                
+            else:
+                dc=dc + 4
 
         elif t[0] == "blt":
             rs1=t[1]
             rs2=t[2]
             imm=t[3]
-            val1 = l[rs1] & 0xFFFFFFFF
-            val2 = l[rs2] & 0xFFFFFFFF
-            dc = (dc + imm) if val1 < val2 else dc + 4
+            val1 = l[rs1] if l[rs1]< 0x80000000 else l[rs1] - 0x100000000
+            val2 = l[rs2] if l[rs2]< 0x80000000 else l[rs2] - 0x100000000
+            if val1<val2:
+                a=dc+imm
+                checkjump(a,dc,dict1)
+                dc = (dc + imm)
+            else:
+                dc=dc+4
+
 
         elif t[0] == "bltu":
             rs1=t[1]
             rs2=t[2]
             imm=t[3]
-            dc = (dc + imm) if (l[rs1] & 0xFFFFFFFF) < (l[rs2] & 0xFFFFFFFF) else dc + 4
+            if (l[rs1] & 0xFFFFFFFF) < (l[rs2] & 0xFFFFFFFF):
+                a=dc+imm
+                checkjump(a,dc,dict1)
+                dc = (dc + imm)
+            else :
+                dc=dc + 4
 
         elif t[0] == "lui":
             rd=t[1]
@@ -262,7 +337,10 @@ with open(outset, 'w') as f:
             rd=t[1]
             imm=t[2]
             if rd != 0: l[rd] = dc + 4
-            dc = (dc + imm) & 0xFFFFFFFF
+            a=dc+imm
+            checkjump(a,dc,dict1)
+            dc=dc+imm
+
 
         z = "0b"+format(dc,'032b')
         f.write(z + " ")
@@ -274,8 +352,7 @@ with open(outset, 'w') as f:
         if ins == halt:
             break
 
-    # Memory dump
-    for md in range(0x00010000, 0x00010080, 4):
-        f.write("0x{:08X}:0b{}\n".format(md, format(memory.get(md, 0), '032b')))
+    for md in range(0x00010000, 0x00010080, 4):     # all 32 memory values
+        f.write(("0x{:08X}:0b{}\n").format(md, format(memory.get(md, 0), '032b')))
 
 sys.exit(0)
